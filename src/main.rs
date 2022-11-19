@@ -1,5 +1,7 @@
-use geoserver_to_pma as gs;
+use std::path::PathBuf;
+
 use clap::Parser;
+use geoserver_to_pma as gs;
 
 /// Simple program to convert GeoServer files into PMA databases
 #[derive(Parser, Debug)]
@@ -8,15 +10,15 @@ version,
 about,
 long_about = None)]
 struct Args {
-    /// Input file path of a CSV file containing GeoServer info
+    /// Input file path of a JSON file containing GeoServer info
     #[arg(short, long, value_name = "INPUT")]
-    input_path: Option<std::path::PathBuf>,
+    input_path: std::path::PathBuf,
 
     /// Maximum latitude to include in the resulting file
-    #[arg(short, long, allow_hyphen_values = true, default_value_t = -23.0)]
+    #[arg(short, long, allow_negative_numbers = true, default_value_t = -23.0)]
     max_lat: f64,
 
-    /// Output optional file path of a CSV file containing GeoServer info
+    /// Optional output file path of a "txt" in PMA format
     #[arg(short, long, value_name = "OUTPUT")]
     output_path: Option<std::path::PathBuf>,
 }
@@ -24,17 +26,19 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let final_path = match args.input_path {
-        None => {
-            eprintln!("You didn't give a valid file path. Aborting.");
-            std::process::exit(1);
-        }
-        Some(path) => path,
-    };
+    let input_file = args.input_path;
 
-    let dest_ext = final_path.with_extension("txt");
+    if let Some(path) = args.output_path {
+        let output_ext = path;
+        run(&input_file, &output_ext)
+    } else {
+        let output_ext = input_file.with_extension("txt");
+        run(&input_file, &output_ext)
+    }
+}
 
-    let data = gs::AiswebAirportJSON::new(&final_path);
+fn run(input_file: &PathBuf, output_ext: &PathBuf) -> () {
+    let data = gs::AiswebJSON::new(&input_file);
 
-    data.write_pma_txt(&dest_ext);
+    data.decide(&output_ext);
 }
