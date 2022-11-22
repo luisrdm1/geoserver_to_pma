@@ -23,6 +23,7 @@ enum ObjectProperties {
         latitude_dec: f64,
         longitude_dec: f64,
         elevacao: f64,
+        airport_pk: Option<u16>,
     },
     Vor {
         ident: String,
@@ -44,6 +45,20 @@ enum ObjectProperties {
         threshlon: f64,
         threshelev: Option<f64>,
         gid: u32,
+        runway_pk: u16,
+    },
+    RunwayV2 {
+        runway_pk: u16,
+        airport_pk: u16,
+        surface: String,
+    },
+    NDB {
+        codeid: String,
+        geolat: f64,
+        geolong: f64,
+        txtname: String,
+        valfreq: f64,
+        tipo: String,
     },
 }
 
@@ -54,6 +69,10 @@ impl AiswebJSON {
         let deserialized_data: AiswebJSON = serde_json::from_reader(rdr).unwrap();
 
         deserialized_data
+    }
+
+    pub fn compare(struct1: AiswebJSON, struct2: AiswebJSON) {
+        todo!()
     }
 
     pub fn decide(&self, destination_path: &PathBuf) {
@@ -67,6 +86,7 @@ impl AiswebJSON {
                     latitude_dec,
                     longitude_dec,
                     elevacao,
+                    airport_pk,
                 } => {
                     let formated = format!(
                         "Aeródromos_{}_{}_{}_Aeródromo_{}_{}_{}\n",
@@ -78,7 +98,7 @@ impl AiswebJSON {
                         (elevacao * 3.28084) as i32,
                     );
 
-                    write_pma_txt(&mut buffer, &formated);
+                    write_pma_txt(&mut buffer, &formated).unwrap();
                 }
                 ObjectProperties::Vor {
                     ident,
@@ -98,7 +118,7 @@ impl AiswebJSON {
                         vortype_str, frequency, txtname, ident, latitude, longitude,
                     );
 
-                    write_pma_txt(&mut buffer, &formated);
+                    write_pma_txt(&mut buffer, &formated).unwrap();
                 }
                 ObjectProperties::Fixes {
                     ident,
@@ -113,7 +133,7 @@ impl AiswebJSON {
                         latitude,
                         longitude
                     );
-                    write_pma_txt(&mut buffer, &formated);
+                    write_pma_txt(&mut buffer, &formated).unwrap();
                 }
                 ObjectProperties::Thresholds {
                     rwyendid,
@@ -121,6 +141,7 @@ impl AiswebJSON {
                     threshlon,
                     threshelev,
                     gid,
+                    runway_pk,
                 } => {
                     let elevation = threshelev.unwrap_or(0.0);
 
@@ -137,8 +158,28 @@ impl AiswebJSON {
                         (elevation * 3.28084) as i32
                     );
 
-                    write_pma_txt(&mut buffer, &formated);
+                    write_pma_txt(&mut buffer, &formated).unwrap();
                 }
+                ObjectProperties::RunwayV2 {
+                    runway_pk,
+                    airport_pk,
+                    surface,
+                } => break,
+                ObjectProperties::NDB {
+                    codeid,
+                    geolat,
+                    geolong,
+                    txtname,
+                    valfreq,
+                    tipo,
+                } => {
+                    let formated = format!(
+                        "{}_{}_{}_{}_Padrão_{}_{}_0\n",
+                        tipo, valfreq, txtname, codeid, geolat, geolong,
+                    );
+
+                    write_pma_txt(&mut buffer, &formated).unwrap();
+                },
             }
         }
     }
@@ -156,7 +197,12 @@ struct AiswebFixesJSON {}
 pub fn write_pma_txt(buffer: &mut fs::File, formated: &str) -> std::io::Result<()> {
     let (cow, _, _) = encoding_rs::WINDOWS_1252.encode(&formated);
 
-    buffer.write(&cow);
+    match buffer.write(&cow) {
+        Ok(_) => return Ok(()),
+        Err(e) => {
+            eprint!("Somenthing wrong happened: {}", e);
+        }
+    }
     Ok(())
 }
 

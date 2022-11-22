@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use geoserver_to_pma as gs;
+use geo_pma as gs;
 
 /// Simple program to convert GeoServer files into PMA databases
 #[derive(Parser, Debug)]
@@ -21,9 +21,33 @@ struct Args {
     /// Optional output file path of a "txt" in PMA format
     #[arg(short, long, value_name = "OUTPUT")]
     output_path: Option<std::path::PathBuf>,
+
+    /// Offline usage, by indicating the path of the input files
+    #[arg(short, long, value_name = "PATH")]
+    path: Option<Vec<std::path::PathBuf>>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    let options = ["waypoint", "ndb", "vor", "runway_v2", "rwydirection", "airport"];
+
+    let mut structs = Vec::new();
+
+    for option in options {
+        let target = option;
+    
+        let aisweb_url = format!("https://geoaisweb.decea.mil.br/geoserver/ICA/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=ICA:{target}&outputFormat=application%2Fjson");
+    
+        // waypoint, ndb, vor, runway_v2, rwydirection (cabeceiras), airport
+    
+        let response = reqwest::get(aisweb_url).await?;
+    
+        let deserial: gs::AiswebJSON = response.json().await?;
+
+        structs.push(deserial);
+    }
+    
     let args = Args::parse();
 
     let input_file = args.input_path;
@@ -35,6 +59,8 @@ fn main() {
         let output_ext = input_file.with_extension("txt");
         run(&input_file, &output_ext)
     }
+
+    Ok(())
 }
 
 fn run(input_file: &PathBuf, output_ext: &PathBuf) -> () {
