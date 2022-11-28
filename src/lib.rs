@@ -204,7 +204,7 @@ impl Format for CompleteThresholds {
         format!(
             "{}_{}_{}x{}_{}_Padrão_{}_{}_{}\n",
             self.localidade_id,
-            self.surface,
+            self.surface.replace("_", "-"),
             self.runwayleng,
             self.width,
             self.rwyendid,
